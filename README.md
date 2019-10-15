@@ -212,4 +212,4 @@ io()
 ``` 
 
 Documentação:
-- Socket.io
+- [Socket.io](https://socket.io/)
