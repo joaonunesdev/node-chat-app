@@ -194,3 +194,22 @@ app.listen(port, () => {
 	console.log(`Servidor está on na porta ${port}`)
 })
 ```
+
+O servidor logo acima usa **io.on** que é fornecido por Socket.io. **on** faz com que o servidor escute/monitore novas conexões, o que permite a execução de algum código sempre que um novo cliente conectar-se ao servidor WebSocket.
+
+Socket.io será utilizado no cliente para conectar-se com o servidor. Socket.io automaticamente serve o arquivo **/socket.io/socket.io.js** que contém o código do lado do cliente. Para fazer o cliente se conectar ao nosso servidor devemos adicionar as tags de script abaixo para carregar a biblioteca do lado do cliente. Vamos aproveitar e adicionar um arquivo customizado que já criamos **/js/chat.js**.
+
+No arquivo **public/chat.html** adicione os seguintes scripts:
+
+```html
+<script  src="/socket.io/socket.io.js"></script>
+<script  src="/js/chat.js"></script>
+```
+A partir deste momento o JavaScript do lado do cliente pode conectar com o servidor Socket.io chamando **io**. **io** é fornecido pela biblioteca Socket.io do lado do cliente. Ao chamar esta função a configuração será realizada, fazendo com que o código do handler do evento **connection** seja executado.
+
+```javascript
+io()
+``` 
+
+Documentação:
+- Socket.io
