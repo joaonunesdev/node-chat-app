@@ -15,9 +15,9 @@ Nesta seção vamos dar kick-off no projeto: criando um novo diretório para o C
 
 **Passo 2** - Inicialize o npm e instale o Express.
 
-Execute o seguinte comando no terminal:
+Execute o seguinte comando no terminal (a partir do diretório chat-app):
 ```
-npm init -y
+> npm init -y
 ```
 A flag -y vai configurar o valor padrão para as configurações básicas do projeto. O resultado deve ser um arquivo **package.json** no seguinte formato:
 
@@ -36,13 +36,13 @@ A flag -y vai configurar o valor padrão para as configurações básicas do pro
 }
 ```
 
-Para instalar o Express basta executar o seguinte comando no terminal:
+Para instalar o Express basta executar o seguinte comando no terminal (a partir do diretório chat-app):
 
 ```
-npm install express@4.17.1
+> npm install express@4.17.1
 ```
 
-**Passo 3** - Criar um servidor com Express
+**Passo 3** - Criar um servidor com Express.
 
 ```javascript
 const express = require('express')
@@ -75,4 +75,76 @@ app.listen(port, () => {
 	console.log(`Server is up on port ${port}`)
 })
 ```
-No código acima primeiro importamos o módulo **path** que nos permite trabalhar caminhos de arquivos e diretórios. Em seguida criamos uma constante para armazenar o caminho para o diretório público da nossa aplicação. Para isso utilizamos o método ```path.join()``` que faz o join dos caminhos fornecidos para um caminho apenas.   A variável **__dirname** representa o diretório do arquivo corrente (no caso, do arquivo index.js).
+No código acima primeiro importamos o módulo **path** que nos permite trabalhar caminhos de arquivos e diretórios. Em seguida criamos uma constante para armazenar o caminho para o diretório público da nossa aplicação. Para isso utilizamos o método ```path.join()``` que faz o join dos caminhos fornecidos para um caminho apenas.   A variável **__dirname** representa o caminho do arquivo corrente (no caso, do arquivo index.js).
+
+**Passo 5** - Preenchemos o aquivo index.html com o código abaixo para que seja renderizado o texto "Chat App" na tela.
+
+```html
+<!DOCTYPE html>
+<html>
+	<head></head>
+	<body>
+		Chat App
+	</body>
+</html>
+```
+Depois executamos o comando abaixo 
+```
+> node src/index.js
+> Server is up on port 3000
+```
+
+Ao acessar o endereço **localhost:/3000** a página index.html deve ser renderizada com o texto "Chat App".
+
+**Passo 6** - Configurando scripts no **package.json**.
+
+Primeiro vamos criar o script "start" para iniciar o app usando node. Para isso vamos editar o arquivo **package.json**:
+ ```json
+ {
+	"name": "chat-app",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+	"express": "^4.17.1"
+	}
+}
+ ```
+
+Em "scripts" removemos a chave "test" (não iremos escrever testes neste projeto),  e adicionamos "start" e "dev" conforme o json abaixo:
+
+ ```json
+ {
+	"name": "chat-app",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"start": "node src/index.js",
+		"dev": "nodemon src/index.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+	"express": "^4.17.1"
+	}
+}
+ ```
+
+Em seguida instalamos o nodemon como uma dependência de desenvolvimento (*--save-dev*) com o comando descrito abaixo:
+
+```
+> npm install nodemon@1.19.3
+```
+Se conferirmos o **package.json** vamos ver que **devDependecies** foi adicionado com **nodemon** como primeira dependência. A partir de agora, para rodar o servidor basta executar o comando ``npm run <nome-do-script>``. Conforme exemplo abaixo:
+
+```
+> npm run dev
+```
