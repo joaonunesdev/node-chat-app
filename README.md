@@ -143,8 +143,54 @@ Em seguida instalamos o nodemon como uma dependência de desenvolvimento (*--sav
 ```
 > npm install nodemon@1.19.3
 ```
-Se conferirmos o **package.json** vamos ver que **devDependecies** foi adicionado com **nodemon** como primeira dependência. A partir de agora, para rodar o servidor basta executar o comando ``npm run <nome-do-script>``. Conforme exemplo abaixo:
+Se conferirmos o **package.json** vamos ver que **devDependecies** foi adicionado com **nodemon** como primeira dependência. A partir de agora, para rodar o servidor basta executar o comando ``npm run <nome-do-script>``, conforme exemplo abaixo:
 
 ```
 > npm run dev
+```
+
+# WebSockets
+
+O protocolo WebSocket suporta comunicação bi-direcional (full-duplex) em tempo real, o que faz dele uma boa opção para criar o nosso aplicativo de chat. Para mais informações acerca do protocolo WebSocket veja [este artigo](https://medium.com/reactbrasil/como-o-javascript-funciona-aprofundando-em-websockets-e-http-2-com-sse-como-escolher-o-caminho-d4639995ef85). 
+
+**Passo 7** - Instalando e configurando Socket.io.
+
+Vamos instalar e configurar Socket.io, o qual possui tudo que precisamos para configuramos um servidor WebScoket com Node.
+
+Para instalar socket.io execute o comando abaixo:
+
+```
+npm install socket.io@2.3.0
+```
+
+Socket.io pode ser utilizado de forma standalone ou com o Express. Haja vista que a nossa aplicação servirá assets do lado do cliente, ambos serão configurados. O arquivo do servidor abaixo mostra como isto pode ser feito.
+
+```javascript
+const path = require('path')
+const http = require('http'
+const express = require('express')
+const socketio = require('socket.io')
+
+// Cria a aplicação Express
+const app = express()
+
+// Cria um servidor HTTP usando a aplicação Express
+const server= http.createServer(app)
+
+// Conecta socket.io com o servidor HTTP
+const io = socketio(server)
+
+const port = process.env.PORT || 3000
+const publicDirectoryPath = path.join(__dirname, '../public')
+
+app.use(express.static(publicDirectoryPath))
+
+// Monitora novas conexões para Socket.io
+io.on('connection', () => {
+	cosole.log('Nova conexão com WebSocket')
+})
+
+app.listen(port, () => {
+	console.log(`Servidor está on na porta ${port}`)
+})
 ```
