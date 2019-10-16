@@ -414,18 +414,11 @@ socket.on('message', (msg) => {
 })
 ``` 
 
-Para testar, podemos abrir três instâncias do browser, exibir o console no modo desenvolvedor e acessar o endereço **localhost:3000** em cada uma das instâncias. As figuras abaixo ilustram o resultado.
+Para testar, podemos abrir quatro instâncias do browser, exibir o console (ativando o modo desenvolvedor) e acessar o endereço **localhost:3000** em cada uma das instâncias.
 
-![Primeiro cliente se conecta](https://lh3.googleusercontent.com/wQyIkEyiriq5k3ZoIAfa933XxP6I1B7yLxTuTSl0WDRvvZjey95kJUD17PF_uNNaVklNQ6_hlYc "Primeiro cliente se conecta")
+![enter image description here](https://i.imgur.com/wMRXEvz.gif)
 
-![Segundo cliente se conecta](https://lh3.googleusercontent.com/JQUzbrzPd89VfwTQBEYVNWytA_gAmiqrkIvUTHEPOrlAp7EsdtmUp0GfpcAR8urdHorxyY9iCB0 "Segundo cliente se conecta")
-
-![Terceiro cliente se conecta](https://lh3.googleusercontent.com/VoYM-1PFM_xJYC3vFi351B73p1xYXGV2Blm7hqNjtCsq7mO8yeIFVXBUgrl8LcvoItBzJZkPdZ0 "Terceiro cliente se conecta")
-
-![Quarto cliente se conecta](https://lh3.googleusercontent.com/v5L4QvfoFxI1zoXWlh-1b-H8DkX0vdphflf8TlAt3ZhdDUfQbzu1KY-0xC6BbqbIrSpsCjuP-PM "Quarto cliente se conecta")
-
-
-Vamos adicionar mais um evento para monitorar as desconexões dos clientes. No nosso aplicativo de bate-papo servirá para notificar a sala que quando alguém sair da sala.
+Vamos adicionar mais um evento para monitorar as desconexões dos clientes. No nosso aplicativo de bate-papo servirá para notificar à sala da saída de um membro do bate-papo.
 
 Vamos modificar mais um pouco o arquivo **src/index.js** adicionando um *listener* para monitorar eventos do tipo ``disconnect`` (i.e., desconexões dos clientes). No nosso aplicativo de bate-papo, esse trecho de código servirá para notificar todos os membros da sala de bate-papo da saída de alguém. 
  
@@ -442,6 +435,10 @@ io.on('connection', (socket) => {
 	})
 })
 ```
+
+Nossa aplicação de bate-papo deve estar da seguinte forma:
+
+![enter image description here](https://i.imgur.com/jQVypQo.gif)
 
 Reparem que não estamos usando ``broadcast`` no *handler* de eventos de desconexões, e sim ``io.emit``, que emite o evento do tipo `message` para todos os clientes conectados, incluindo o emissor. Como este evento será emitido quando o emissor sair da sala, não há problema em usar ``io.emit``.
 
@@ -466,6 +463,11 @@ io.on('connection', (socket) => {
 	})
 })
 ```
+
+Nossa aplicação de bate-papo deve estar da seguinte forma:
+
+![enter image description here](https://i.imgur.com/PXuHBcq.gif)
+
 # Interface do usuário
 Como o intuito aqui é entendermos os conceitos mais básicos do Socket.io, vamos dar o "pulo do gato" e copiar alguns arquivos de estilo e html para criar a interface de usuário inicial de nossa aplicação de bate-papo.
 
