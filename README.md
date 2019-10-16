@@ -149,74 +149,13 @@ Se conferirmos o **package.json** vamos ver que **devDependecies** foi adicionad
 > npm run dev
 ```
 
-# WebSockets
+# Mensagens
 
-O protocolo WebSocket suporta comunicação bi-direcional (full-duplex) em tempo real, o que faz dele uma boa opção para criar o nosso aplicativo de chat. Para mais informações acerca do protocolo WebSocket veja [este artigo](https://medium.com/reactbrasil/como-o-javascript-funciona-aprofundando-em-websockets-e-http-2-com-sse-como-escolher-o-caminho-d4639995ef85). 
+Antes de começarmos a usar events na nossa aplicação vamos criar o utilitário que gera as mensagens do chat e de localização.  
 
-**Passo 7** - Instalando e configurando Socket.io.
+**Passo 7** - Criando o utilitário de mensagens.
 
-Vamos instalar e configurar Socket.io, o qual possui tudo que precisamos para configuramos um servidor WebScoket com Node.
-
-Para instalar socket.io execute o comando abaixo:
-
-```
-npm install socket.io@2.3.0
-```
-
-Socket.io pode ser utilizado de forma standalone ou com o Express. Haja vista que a nossa aplicação servirá assets do lado do cliente, ambos serão configurados. O arquivo do servidor abaixo mostra como isto pode ser feito.
-
-```javascript
-const path = require('path')
-const http = require('http'
-const express = require('express')
-const socketio = require('socket.io')
-
-// Cria a aplicação Express
-const app = express()
-
-// Cria um servidor HTTP usando a aplicação Express
-const server= http.createServer(app)
-
-// Conecta socket.io com o servidor HTTP
-const io = socketio(server)
-
-const port = process.env.PORT || 3000
-const publicDirectoryPath = path.join(__dirname, '../public')
-
-app.use(express.static(publicDirectoryPath))
-
-// Monitora novas conexões para Socket.io
-io.on('connection', () => {
-	cosole.log('Nova conexão com WebSocket')
-})
-
-app.listen(port, () => {
-	console.log(`Servidor está on na porta ${port}`)
-})
-```
-
-O servidor logo acima usa **io.on** que é fornecido por Socket.io. **on** faz com que o servidor escute/monitore novas conexões, o que permite a execução de algum código sempre que um novo cliente conectar-se ao servidor WebSocket.
-
-Socket.io será utilizado no cliente para conectar-se com o servidor. Socket.io automaticamente serve o arquivo **/socket.io/socket.io.js** que contém o código do lado do cliente. Para fazer o cliente se conectar ao nosso servidor devemos adicionar as tags de script abaixo para carregar a biblioteca do lado do cliente. Vamos aproveitar e adicionar um arquivo customizado que já criamos **/js/chat.js**.
-
-No arquivo **public/chat.html** adicione os seguintes scripts:
-
-```html
-<script  src="/socket.io/socket.io.js"></script>
-<script  src="/js/chat.js"></script>
-```
-A partir deste momento o JavaScript do lado do cliente pode conectar com o servidor Socket.io chamando **io**. **io** é fornecido pela biblioteca Socket.io do lado do cliente. Ao chamar esta função a configuração será realizada, fazendo com que o código do handler do evento **connection** seja executado.
-
-```javascript
-io()
-``` 
-
-Documentação:
-- [Socket.io](https://socket.io/)
-
-# Messages
-
-Antes de começarmos a usar events na nossa aplicação vamos criar o utilitário que gera as mensagens do chat e de localização.  A mensagem de chat gerada possui o nome de usuário, o texto da mensagem e a data de criação. A mensagem de localização do cliente possui o nome de usuário, uma url do google maps com a latitude e longitude do usuário (capturada do browser) e a data de criação da mensagem.
+A mensagem de chat gerada possui o nome de usuário, o texto da mensagem e a data de criação. A mensagem de localização do cliente possui o nome de usuário, uma url do google maps com a latitude e longitude do usuário (capturada do browser) e a data de criação da mensagem.
 
 Copie o código abaixo e cole no arquivo **src/utils/message.js**
 
@@ -260,4 +199,170 @@ module.exports  = {
   generateLocationMessage
 }
 ```
+
+# Usuários
+O último passo antes de começarmos a trabalhar com WebSockets será criar as regras de negócio da nossa aplicação.
+
+**Passo 8** - Criando as regras de negócio de nossa aplicação.
+
+Já adicionamos um arquivo **users.js** no diretório **utils**. Neste arquivo colocaremos a estrutura de dados que armazenará os usuários, um array simples, e quatro funções: **addUser**, que adiciona um usuário na array de usuários; **removeUser**, que remove um usuário da array de usuários;  **getUser**, que recupera um usuário específico; e **getUsersInRoom**, que recupera todos os usuários que estão em determinada sala de chat.
+
+Copie o código abaixo e cole no arquivo **src/utils/users.js**
+
+ ```javascript
+const  users  = []
+
+/**
+* Adiciona um cliente no chat.
+* @param  {Object}  objeto Representação de um cliente do chat.
+*/
+const  addUser  = ({ id, username, room }) => {
+  // Trata os dados removendo espaços em branco e transformando em caixa baixa
+  username  =  username.trim().toLowerCase()
+  room  =  room.trim().toLowerCase()
+
+  // Valida os dados
+  if (!username  ||  !room) {
+    return {
+      error:  'Username and room are required!'
+    }
+  }
+
+  // Verifica a existência de um usuário
+  const  existingUser  =  users.find((user) => {
+    return  user.room  ===  room  &&  user.username  ===  username
+  })
+
+  // Valida o nome de usuário
+  if (existingUser) {
+    return {
+      error:  'Username is in use!'
+    }
+  }  
+
+  // Registra o usuário
+  const  user  = { id, username, room }
+  users.push(user)
+
+  return { user }
+}
+
+/**
+* Remove um cliente do chat.
+* @param  {number}  id Identificador único do usuário.
+*/
+const  removeUser  = (id) => {
+  // Encontra o índice do usuário com a id informada
+  // Embora filter pudesse ser utilizado, essa abordagem é mais performática
+  const  index  =  users.findIndex((user) =>  user.id  ===  id)
+
+  // Remove o usuário pelo índice da array
+  if (index  !==  -1) {
+    return  users.splice(index, 1)[0]
+  }
+  
+}
+
+/**
+* Recupera um usuário por meio da id.
+* @param  {number}  id Identificador único do usuário.
+*/
+const  getUser  = (id) => {
+  return  users.find((user) =>  user.id  ===  id)
+}
+
+/**
+* Recupera os usuários de uma sala de chat.
+* @param  {Object}  room Sala de chat
+*/
+const  getUsersInRoom  = (room) => {
+  room  =  room.trim().toLowerCase()
+  return  users.filter((user) =>  user.room  ===  room)
+}
+
+module.exports  = {
+  addUser,
+  removeUser,
+  getUser,
+  getUsersInRoom
+}
+```
+
+# WebSockets e Socket.IO
+
+O protocolo WebSocket suporta comunicação bi-direcional (full-duplex) em tempo real, o que faz dele uma boa opção para criar o nosso aplicativo de chat. Para mais informações acerca do protocolo WebSocket veja [este artigo](https://medium.com/reactbrasil/como-o-javascript-funciona-aprofundando-em-websockets-e-http-2-com-sse-como-escolher-o-caminho-d4639995ef85). 
+
+Nesta aplicação utilizaremos Socket.IO. Socket.IO é uma biblioteca que permite a comunicação em tempo real, bidirecional e baseada em eventos entre o navegador, que consiste de um servidor Node.js e uma biblioteca cliend-side para o browser.
+
+- Para mais informações:  
+	- [O que é Socket.io?](https://socket.io/docs/#What-Socket-IO-is)
+	- [O que Socket.io não é?](https://socket.io/docs/#What-Socket-IO-is-not)
+
+**Passo 9** - Instalando e configurando Socket.io.
+
+Vamos instalar e configurar Socket.io, o qual possui tudo que precisamos para configuramos um servidor WebSocket com Node.
+
+Para instalar socket.io execute o comando abaixo:
+
+```
+npm install socket.io@2.3.0
+```
+
+Socket.io pode ser utilizado de forma standalone ou com o Express. Haja vista que a nossa aplicação servirá assets do lado do cliente, ambos serão configurados. O arquivo do servidor abaixo mostra como isto pode ser feito.
+
+```javascript
+const path = require('path')
+const http = require('http'
+const express = require('express')
+const socketio = require('socket.io')
+
+// Cria a aplicação Express
+const app = express()
+
+// Cria um servidor HTTP usando a aplicação Express
+const server= http.createServer(app)
+
+// Conecta socket.io com o servidor HTTP
+const io = socketio(server)
+
+const port = process.env.PORT || 3000
+const publicDirectoryPath = path.join(__dirname, '../public')
+
+app.use(express.static(publicDirectoryPath))
+
+// Monitora novas conexões para Socket.io
+io.on('connection', () => {
+	console.log('Nova conexão com WebSocket')
+})
+
+app.listen(port, () => {
+	console.log(`Servidor está on na porta ${port}`)
+})
+```
+
+O servidor logo acima usa **io.on** que é fornecido por Socket.io. **on** faz com que o servidor escute/monitore novas conexões, o que permite a execução de algum código sempre que um novo cliente conectar-se ao servidor WebSocket.
+
+Socket.io será utilizado no cliente para conectar-se com o servidor. Socket.io automaticamente serve o arquivo **/socket.io/socket.io.js** que contém o código do lado do cliente. Para fazer o cliente se conectar ao nosso servidor devemos adicionar as tags de script abaixo para carregar a biblioteca do lado do cliente. Vamos aproveitar e adicionar um arquivo customizado que já criamos **/js/chat.js**.
+
+No arquivo **public/chat.html** adicione os seguintes scripts:
+
+```html
+<script  src="/socket.io/socket.io.js"></script>
+<script  src="/js/chat.js"></script>
+```
+A partir deste momento o JavaScript do lado do cliente pode conectar com o servidor Socket.io chamando **io**. **io** é fornecido pela biblioteca Socket.io do lado do cliente. Ao chamar esta função a configuração será realizada, fazendo com que o código do handler do evento **connection** seja executado.
+
+```javascript
+io()
+``` 
+- Para mais informações consulte a documentação oficial:
+	- [Socket.io](https://socket.io/)
+
+# Eventos 
+
+Eventos em Socket.io permitem a transferência de dados do cliente para o servidor ou do servidor para o cliente.
+
+Antes de por a mão na massa, vamos estabelecer alguns conceitos básicos. Há dois lados para cada evento, o remetente (sender) e o receptor (receiver). Se o servidor é o remetente, o cliente é o receptor. Se o cliente é o remetente, o servidor é o receptor.
+
+Eventos são enviados do remetente usando o método **emit**. Eventos são recebidos pelo receptor usando o método **on**. 
 
