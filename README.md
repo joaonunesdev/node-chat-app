@@ -381,6 +381,9 @@ Eventos são enviados do remetente usando o método ``emit``. Eventos são receb
 
 Na nossa aplicação de bate-papo, seria interessante que os usuários em uma sala fossem notificados do ingresso de um novo usuário na sala. Para isso, vamos usar eventos de **broadcasting**.
 
+**Passo 10** - Notificando a conexão de um novo usuário e saudá-o.
+
+
 **Broadcasting**
 
 Eventos podem ser transmitidos a partir do servidor usando ``socket.broadcast.emit``. Este evento será enviado para todos os sockets, exceto o que transmitiu o evento. O alteração de código abaixo mostra isso. Quando um novo usuário ingressa no aplicativo de bate-papo, ``socket.broadcast.emit`` é usado para enviar uma mensagem a todos os outros usuários, informando notificando-os do ingresso de um novo usuário na sala de bate-papo.
@@ -411,7 +414,7 @@ socket.on('message', (msg) => {
 })
 ``` 
 
-Para testar, podemos abrir três instâncias do browser, exibir o console no modo desenvolvedor e acessar o endereço **localhost:3000** em cada uma das instâncias do browser. As figuras abaixo ilustram o resultado.
+Para testar, podemos abrir três instâncias do browser, exibir o console no modo desenvolvedor e acessar o endereço **localhost:3000** em cada uma das instâncias. As figuras abaixo ilustram o resultado.
 
 ![Primeiro cliente se conecta](https://lh3.googleusercontent.com/wQyIkEyiriq5k3ZoIAfa933XxP6I1B7yLxTuTSl0WDRvvZjey95kJUD17PF_uNNaVklNQ6_hlYc "Primeiro cliente se conecta")
 
@@ -420,3 +423,305 @@ Para testar, podemos abrir três instâncias do browser, exibir o console no mod
 ![Terceiro cliente se conecta](https://lh3.googleusercontent.com/VoYM-1PFM_xJYC3vFi351B73p1xYXGV2Blm7hqNjtCsq7mO8yeIFVXBUgrl8LcvoItBzJZkPdZ0 "Terceiro cliente se conecta")
 
 ![Quarto cliente se conecta](https://lh3.googleusercontent.com/v5L4QvfoFxI1zoXWlh-1b-H8DkX0vdphflf8TlAt3ZhdDUfQbzu1KY-0xC6BbqbIrSpsCjuP-PM "Quarto cliente se conecta")
+
+
+Vamos adicionar mais um evento para monitorar as desconexões dos clientes. No nosso aplicativo de bate-papo servirá para notificar a sala que quando alguém sair da sala.
+
+Vamos modificar mais um pouco o arquivo **src/index.js** adicionando um *listener* para monitorar eventos do tipo ``disconnect`` (i.e., desconexões dos clientes). No nosso aplicativo de bate-papo, esse trecho de código servirá para notificar todos os membros da sala de bate-papo da saída de alguém. 
+ 
+```javascript
+// Monitora novas conexões para Socket.io
+io.on('connection', (socket) => {
+	// Notifica o ingresso de um novo usuário no bate-papo
+	socket.broadcast.emit('message', 'Um novo usuário se conectou!') 
+
+	// Monitora desconexões dos clientes
+	socket.on('disconnect', (socket) => {
+		// Notifica a saída de um usuário da sala de bate-papo	
+		io.emit('message', 'Um usuário saiu da sala!')
+	})
+})
+```
+
+Reparem que não estamos usando ``broadcast`` no *handler* de eventos de desconexões, e sim ``io.emit``, que emite o evento do tipo `message` para todos os clientes conectados, incluindo o emissor. Como este evento será emitido quando o emissor sair da sala, não há problema em usar ``io.emit``.
+
+Agora vamos adicionar uma mensagem de boas vindas para cada novo usuário que se logar. Essa mensagem será enviada somente para o usuário que estiver se conectando no momento e não será vista pelos demais presentes na sala de bate-papo.
+
+Em **src/index.js**:
+```javascript
+// Monitora novas conexões para Socket.io
+io.on('connection', (socket) => {
+	// Envia mensagem de boas vindas a um novo usuário que se conectou
+	// A mensagem é enviada ao novo usuário (nova conexão), somente
+	socket.emit('message', "Welcome!")
+	
+	// Notifica o ingresso de um novo usuário no bate-papo
+	// A mensagem é enviada para todos, exceto para o cliente que socket faz referencia
+	socket.broadcast.emit('message', 'A new user has joined!') 
+
+	// Monitora desconexões dos clientes
+	socket.on('disconnect', (socket) => {
+		// Notifica a saída de um usuário da sala de bate-papo	
+		io.emit('message', 'User has left!')
+	})
+})
+```
+# Interface do usuário
+Como o intuito aqui é entendermos os conceitos mais básicos do Socket.io, vamos dar o "pulo do gato" e copiar alguns arquivos de estilo e html para criar a interface de usuário inicial de nossa aplicação de bate-papo.
+
+Sendo assim, copie o seguinte código css para o arquivo **public/css/styles.css**:
+
+```css
+/* Estilo Geral */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 16px;
+}
+
+input {
+	font-size: 14px;
+}
+
+body {
+	line-height: 1.4;
+	color: #333333;
+	font-family: Helvetica, Arial, sans-serif;
+}
+
+h1 {
+	margin-bottom: 16px;
+}
+
+label {
+	display: block;
+	font-size: 14px;
+	margin-bottom: 8px;
+	color: #777;
+}
+
+input {
+	border: 1px  solid  #eeeeee;
+	padding: 12px;
+	outline: none;
+}
+
+button {
+	cursor: pointer;
+	padding: 12px;
+	background: #7C5CBF;
+	border: none;
+	color: white;
+	font-size: 16px;
+	transition: background  .3s  ease;
+}
+
+button:hover {
+	background: #6b47b8;
+}
+
+button:disabled {
+	cursor: default;
+	background: #7c5cbf94;
+}
+
+/* Estilos da página de Join */
+.centered-form {
+	background: #333744;
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.centered-form__box {
+	box-shadow: 0px  0px  17px  1px  #1D1F26;
+	background: #F7F7FA;
+	padding: 24px;
+	width: 250px;
+}
+
+.centered-form  button {
+	width: 100%;
+}
+
+.centered-form  input {
+	margin-bottom: 16px;
+	width: 100%;
+}
+
+/* Layout da página de chat */
+
+.chat {
+	display: flex;
+}
+
+.chat__sidebar {
+	height: 100vh;
+	color: white;
+	background: #333744;
+	width: 225px;
+	overflow-y: scroll
+}
+
+/* Estilos do Chat */
+.chat__main {
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	max-height: 100vh;
+}
+
+.chat__messages {
+	flex-grow: 1;
+	padding: 24px  24px  0  24px;
+	overflow-y: scroll;
+}
+
+/* Estilo das Mensagens */
+.message {
+	margin-bottom: 16px;
+}
+
+.message__name {
+	font-weight: 600;
+	font-size: 14px;
+	margin-right: 8px;
+}
+
+.message__meta {
+	color: #777;
+	font-size: 14px;
+}
+
+.message  a {
+	color: #0070CC;
+}
+
+/* Estilos da Composição de Mensagens */
+.compose {
+	display: flex;
+	flex-shrink: 0;
+	margin-top: 16px;
+	padding: 24px;
+}
+
+.compose  form {
+	display: flex;
+	flex-grow: 1;
+	margin-right: 16px;
+}
+
+.compose  input {
+	border: 1px  solid  #eeeeee;
+	width: 100%;
+	padding: 12px;
+	margin: 0  16px  0  0;
+	flex-grow: 1;
+}
+
+.compose  button {
+	font-size: 14px;
+}
+
+/* Estilo da Sidebar */
+.room-title {
+	font-weight: 400;
+	font-size: 22px;
+	background: #2c2f3a;
+	padding: 24px;
+}
+
+.list-title {
+	font-weight: 500;
+	font-size: 18px;
+	margin-bottom: 4px;
+	padding: 12px  24px  0  24px;
+}
+
+.users {
+	list-style-type: none;
+	font-weight: 300;
+	padding: 12px  24px  0  24px;
+}
+```
+
+Agora, copie o seguinte código html para o arquivo **src/index.html**:
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chat App</title>
+    <link rel="icon" href="/img/favicon.png" />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="chat">
+      <div id="sidebar" class="chat__sidebar"></div>
+      <div class="chat__main">
+        <div id="messages" class="chat__messages"></div>
+
+        <div class="compose">
+          <form id="message-form">
+            <input
+              placeholder="Message"
+              name="message"
+              required
+              autocomplet="off"
+            />
+            <button>Send</button>
+          </form>
+          <button id="send-location">Send Location</button>
+        </div>
+      </div>
+    </div>
+
+    <script id="message-template" type="text/html">
+      <div class="message">
+          <p>
+              <span class="message__name"> {{ username }}</span>
+              <span class="message__meta"> {{ createdAt }} </span>
+          </p>
+          <p>{{ message }}</p>
+      </div>
+    </script>
+
+    <script id="location-message-template" type="text/html">
+      <div class="message">
+            <p>
+                <span class="message__name"> {{ username }}</span>
+                <span class="message__meta"> {{ createdAt }} </span>
+            </p>
+
+            <p> <a href="{{ url }}" target="_blank">My current location</a> </p>
+      </div>
+    </script>
+
+    <script id="sidebar-template" type="text/html">
+      <h2 class="room-title">{{ room }}</h2>
+      <h3 class="list-title">Users</h3>
+      <ul class="users">
+          {{ #users }}
+              <li>{{ username }}</li>
+          {{ /users }}
+      </ul>
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/3.0.1/mustache.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qs/6.6.0/qs.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/chat.js"></script>
+  </body>
+</html>
+```
+
+Ao salvar as alterações o nodemon deve reiniciar o servidor e nossa aplicação deve estar da seguinte forma:
+
+![enter image description here](https://lh3.googleusercontent.com/gd4IKeOtUs2dM1m0QV0K3_DlCQIoARIBE4CLZpp08ZrMik7GeAuANkBSSxyFYm5V4O4Q4FzIbvc "UI") 
