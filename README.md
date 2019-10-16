@@ -312,7 +312,7 @@ Socket.io pode ser utilizado de forma standalone ou com o Express. Haja vista qu
 
 ```javascript
 const path = require('path')
-const http = require('http'
+const http = require('http')
 const express = require('express')
 const socketio = require('socket.io')
 
@@ -342,18 +342,31 @@ app.listen(port, () => {
 
 O servidor logo acima usa **io.on** que é fornecido por Socket.io. **on** faz com que o servidor escute/monitore novas conexões, o que permite a execução de algum código sempre que um novo cliente conectar-se ao servidor WebSocket.
 
-Socket.io será utilizado no cliente para conectar-se com o servidor. Socket.io automaticamente serve o arquivo **/socket.io/socket.io.js** que contém o código do lado do cliente. Para fazer o cliente se conectar ao nosso servidor devemos adicionar as tags de script abaixo para carregar a biblioteca do lado do cliente. Vamos aproveitar e adicionar um arquivo customizado que já criamos **/js/chat.js**.
+Socket.io será utilizado no cliente para conectar-se com o servidor. Socket.io automaticamente serve o arquivo **/socket.io/socket.io.js** que contém o código do lado do cliente. Para fazer o cliente se conectar ao nosso servidor devemos adicionar algumas tags de script no arquivo **public/index.html**, carregando assim a biblioteca do lado do cliente. Vamos também aproveitar e modificar o arquivo **/js/chat.js**.
 
-No arquivo **public/chat.html** adicione os seguintes scripts:
+No arquivo **public/index.html** adicione os seguintes scripts:
 
 ```html
 <script  src="/socket.io/socket.io.js"></script>
 <script  src="/js/chat.js"></script>
 ```
-A partir deste momento o JavaScript do lado do cliente pode conectar com o servidor Socket.io chamando **io**. **io** é fornecido pela biblioteca Socket.io do lado do cliente. Ao chamar esta função a configuração será realizada, fazendo com que o código do handler do evento **connection** seja executado.
+O arquivo **public/index.html** deve estar da seguinte forma: 
+```html javascript
+<!DOCTYPE  html>
+<html>
+  <head></head>
+  <body>
+    <script  src="/socket.io/socket.io.js"></script>
+    <script  src="/js/chat.js"></script>
+  </body>
+</html>
+```
 
+A partir deste momento o JavaScript do lado do cliente pode conectar-se com o servidor Socket.io chamando ``io`` . ``io`` é fornecido pela biblioteca Socket.io do lado do cliente. Ao chamar esta função a configuração será realizada, fazendo com que o código do handler do evento ``connection`` seja executado.
+
+No arquivo **public/js/chat.js**
 ```javascript
-io()
+const  socket  =  io()
 ``` 
 - Para mais informações consulte a documentação oficial:
 	- [Socket.io](https://socket.io/)
@@ -364,5 +377,46 @@ Eventos em Socket.io permitem a transferência de dados do cliente para o servid
 
 Antes de por a mão na massa, vamos estabelecer alguns conceitos básicos. Há dois lados para cada evento, o remetente (sender) e o receptor (receiver). Se o servidor é o remetente, o cliente é o receptor. Se o cliente é o remetente, o servidor é o receptor.
 
-Eventos são enviados do remetente usando o método **emit**. Eventos são recebidos pelo receptor usando o método **on**. 
+Eventos são enviados do remetente usando o método ``emit``. Eventos são recebidos pelo receptor usando o método ``on``, que funciona como um *listener*. Na nossa aplicação iremos utilizar eventos padrões do Socket.IO como ``connection``, ``message`` e ``disconnection``, mas também criaremos eventos personalizados. Aliás, já utilizamos o evento ``connection`` no **index.js**, de forma que emite uma mensagem no console sempre que houver uma nova conexão. 
 
+Na nossa aplicação de bate-papo, seria interessante que os usuários em uma sala fossem notificados do ingresso de um novo usuário na sala. Para isso, vamos usar eventos de **broadcasting**.
+
+**Broadcasting**
+
+Eventos podem ser transmitidos a partir do servidor usando ``socket.broadcast.emit``. Este evento será enviado para todos os sockets, exceto o que transmitiu o evento. O alteração de código abaixo mostra isso. Quando um novo usuário ingressa no aplicativo de bate-papo, ``socket.broadcast.emit`` é usado para enviar uma mensagem a todos os outros usuários, informando notificando-os do ingresso de um novo usuário na sala de bate-papo.
+
+Vamos modificar um pouco o arquivo **src/index.js** para usar `` broadcast.emit`` e receber um objeto ``socket`` como parâmetro.
+ 
+```javascript
+// Monitora novas conexões para Socket.io
+io.on('connection', (socket) => {
+	// console.log('Nova conexão com WebSocket') <- Remova essa linha
+	
+	// Notifica o ingresso de um novo usuário no bate-papo
+	socket.broadcast.emit('message', 'Um novo usuário se conectou!') 
+})
+```
+
+``socket`` contém informações sobre cada nova conexão. Dessa forma, podemos utilizar métodos do objeto ``socket`` para se comunicar com aquele específico cliente que realizou a conexão. No código acima estamos emitindo um evento do tipo ``broadcast`` que é recebido por todos os clientes/conexões ativas com exceção do remetente (o cliente que acaba de se conectar, representado por ``socket``).
+
+Se iniciarmos o servidor não veremos nenhuma alteração. Para vermos algo realmente acontecer vamos alterar o código do lado do cliente para ficar escutando o evento ``message``.
+
+Em **public/js/chat.js** vamos adicionar o seguinte código:
+
+```javascript
+const  socket  =  io()
+
+socket.on('message', (msg) => {
+  console.log(msg)
+})
+``` 
+
+Para testar, podemos abrir três instâncias do browser, exibir o console no modo desenvolvedor e acessar o endereço **localhost:3000** em cada uma das instâncias do browser. As figuras abaixo ilustram o resultado.
+
+![Primeiro cliente se conecta](https://lh3.googleusercontent.com/wQyIkEyiriq5k3ZoIAfa933XxP6I1B7yLxTuTSl0WDRvvZjey95kJUD17PF_uNNaVklNQ6_hlYc "Primeiro cliente se conecta")
+
+![Segundo cliente se conecta](https://lh3.googleusercontent.com/JQUzbrzPd89VfwTQBEYVNWytA_gAmiqrkIvUTHEPOrlAp7EsdtmUp0GfpcAR8urdHorxyY9iCB0 "Segundo cliente se conecta")
+
+![Terceiro cliente se conecta](https://lh3.googleusercontent.com/VoYM-1PFM_xJYC3vFi351B73p1xYXGV2Blm7hqNjtCsq7mO8yeIFVXBUgrl8LcvoItBzJZkPdZ0 "Terceiro cliente se conecta")
+
+![Quarto cliente se conecta](https://lh3.googleusercontent.com/v5L4QvfoFxI1zoXWlh-1b-H8DkX0vdphflf8TlAt3ZhdDUfQbzu1KY-0xC6BbqbIrSpsCjuP-PM "Quarto cliente se conecta")
