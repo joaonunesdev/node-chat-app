@@ -1,6 +1,6 @@
 # Introdução
 
-Vamos criar uma aplicação de bate-papo em tempo real com Node (Chat App). A natureza non-blocking do Node  faz dele uma boa alternativa para este tipo de aplicação. Para ver o resultado final acesse: [http://virtus-chat-app.herokuapp.com](http://virtus-chat-app.herokuapp.com/).
+Vamos criar uma aplicação de bate-papo em tempo real com Node (Chat App). A natureza non-blocking do Node  faz dele uma boa alternativa para este tipo de aplicação. Para ver o resultado final acesse: <a href="http://virtus-chat-app.herokuapp.com" target="_blank">http://virtus-chat-app.herokuapp.com/ </a>.
 
 # Criando o projeto
 
