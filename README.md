@@ -826,7 +826,7 @@ const $sidebarTemplate = document.querySelector('#sidebar-template').innerHTML
 
 **Usuário ingressa no chat**
 
-Quando um usuário entrar no chat um evento personalizado ``join`` será emitido. Como vimos posteriormente, para emitir um evento usamos o método ``emit``. O primeiro parâmetro deste método é o nome do evento, no segundo parâmetro estamos passando um objeto que possui o nome do usuário e a sala. Reparem que para o nome de usuário estamos chamando um função que gera um sequência de caracteres, para que não haja conflito. A sala estamos passando *hardcoded*. O último parâmetro que estamos passando é apenas um *callback* para tratar erros.
+Quando um usuário entrar no chat um evento personalizado ``join`` será emitido. Como vimos posteriormente, para emitir um evento usamos o método ``emit``. O primeiro parâmetro deste método é o nome do evento, no segundo parâmetro estamos passando um objeto que possui o nome do usuário e a sala. Reparem que para o nome de usuário estamos chamando um função que gera um sequência de caracteres aleatória para que não haja conflito. A sala está *hardcoded*. O último parâmetro que estamos passando é apenas um *callback* para tratar erros.
 
 ```javascript
 socket.emit('join', { username: generateFakeName(), room: 'virtus1' }, error => {
@@ -855,17 +855,144 @@ socket.on('message', ({ username, text, createdAt }) => {
 
 No snippet acima, a função ``Mustache.render`` recebe dois parâmetros: 1) o template mustache e 2) um objeto view com os dados que serão utilizados para renderizar o template. Em seguida, utilizamos ``insertAdjacentHTML`` para adicionamos o template renderizado *html* em um ponto específico da página, usando a referência. Em outras palavras, o template será renderizado no elemento com id  #messages.
 
-A partir deste momento, todos os eventos do tipo ``message`` usarão este novo *handler*, agora é preciso alterar o código do arquivo **/src/indexjs** para que eventos tipo ``message`` sejam emitidos com o objeto view esperado, ao invés de um texto simples. O novo formato de mensagens possui três propriedades: (i) nome do usuário; (ii) o texto da mensagem; e (iii) a data de criação da mesma.
+A partir deste momento, todos os eventos do tipo ``message`` usarão este novo *handler*, agora é preciso alterar o código do arquivo **/src/index.js** para que eventos tipo ``message`` sejam emitidos com o objeto view esperado, ao invés de um texto simples. O novo formato de mensagens possui três propriedades: (i) nome do usuário; (ii) o texto da mensagem; e (iii) a data de criação da mesma.
 
 **Passo 15** -  Refatorando o arquivo js do lado servidor. 
 
+No arquivo **/src/index.js** adicione o seguinte import:
+
+```javascript
+const { generateMessage, generateLocationMessage } =  require('./utils/messages')
+const { addUser, removeUser, getUser, getUsersInRoom } = require('./utils/users')
+```
+Agora vamos utilizar as funções ``generateMessage`` e ``addUser``. No entanto, para sermos práticos melhor já incluir as funções presentes nestes arquivos as quais faremos uso em breve. 
+
+Dessa forma, vamos criar um *handler* para o evento personalizado ``join``,  que será emitido sempre que alguém se conectar ao chat.
+
+```javascript
+// Monitora novas conexões para Socket.io
+io.on('connection', (socket) => {
+  // Handler para quando novos usuários entrarem no chat
+  socket.on('join', ({ username, room }, callback) => {
+    const { error, user } = addUser({ id: socket.id, username, room })
+    
+    if (error) {
+      return callback(error)
+    }
+
+    socket.join(user.room)
+
+    socket.emit('message', generateMessage('Admin', 'Welcome!'))
+    socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+    
+    callback() // TODO explicar essa chamada
+  })
+})
+```
+
+Agora vamos entender o que está acontecendo. Sempre que um novo usuário for entrar no sistema ele deve informar o nome de usuário e a sala em que deseja entrar. Mas do lado do servidor o que interessa é que este evento possua um objeto ``{ username, room }``.
+
+Com o nome de usuário e a sala, adicionamos um novo usuário na aplicação da seguinte maneira: 
+
+```javascript
+ const { error, user } = addUser({ id: socket.id, username, room })
+```
+Cada conexão do nosso chat possuirá um objeto com um identificador único, um nome e uma sala. Cada conexão no Socket.io possui um identificador aleatório e exclusivo. Utilizaremos este  identificador como id do usuário.
+
+``addUser`` retorna o usuário cadastrado ou um erro, caso algo de errado ocorra.
+
+Se algum erro ocorrer a função de callback passada pelo evento é chamada com o erro. Se não houver nenhum erro o usuário se junta a uma das salas de chat, conforme código abaixo:
+
+```javascript
+// Assina o usuário em uma sala
+socket.join(user.room)
+```
+No Socket.io é possível definir canais arbitrários nos quais os soquetes podem se conectar com o método ``join`` ou sair com o método ``leave``. Isso se encaixa perfeitamente no conceito de nossa aplicação de chat, no qual as salas são os canais que os usuários podem entrar ou sair. 
+
+Agora podemos encadear os métodos ``to`` ou ``in`` para quando formos emitir ou realizar broadcast de eventos.
+
+No código abaixo primeiro emitimos uma mensagem de boas vindas usando a função ``generateMessage`` que formata a mensagem da forma que o cliente espera (incluindo o timestamp da mensagem). Em seguida realizamos o broadcast de um evento ``message`` que avisa os demais membros da sala de chat sobre o ingresso de um novo membro. 
+
+Já utilizamos broadcast antes, mas agora estamos encadeando a chamada com outro método ``to`` passando como parâmetro a sala de chat que receberá esta mensagem. Para o Socket.io estamos aqui definindo o canal que receberá a mensagem. No nosso contexto, estamos passando como canal  a sala de bate papo (room) que receberá o evento. 
+
+```javascript
+	socket.emit('message', generateMessage('Admin', 'Welcome!'))
+    socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+```
+
+<font color="red">Atenção: </font> Não confundir o método ``socket.join`` com nosso evento personalizado ``join``. O primeiro é chamado para assinar o soquete em um determinado canal, o segundo é emitido sempre que alguém abrir a página de chat de nossa aplicação.
 
 
+Agora vamos alterar um pouco o ``handler`` que lida com desconexões dos usuários, de modo que este remova o usuário da aplicação usando ``removeUser`` e emita um novo evento tipo ``message`` informando aos demais membros da sala de chat que determinado membro saiu. 
 
+```javascript
+ socket.on('disconnect', () => {
+    const user = removeUser(socket.id)
 
+    if (user) {
+      io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+    }
+  })
+```
 
+O arquivo **src/index.j** completo deve estar da seguinte forma:
 
+```javascript
+const path = require('path')
+const http = require('http')
+const express = require('express')
+const socketio = require('socket.io')
+const { generateMessage, generateLocationMessage } = require('./utils/messages')
+const { addUser, removeUser, getUser, getUsersInRoom } = require('./utils/users')
 
+// Cria a aplicação Express
+const app = express()
+
+// Cria um servidor HTTP usando a aplicação Express
+const server = http.createServer(app)
+
+// Conecta socket.io com o servidor HTTP
+const io = socketio(server)
+
+const port = process.env.PORT || 3000
+const publicDirectoryPath = path.join(__dirname, '../public')
+
+app.use(express.static(publicDirectoryPath))
+
+// Monitora novas conexões para Socket.io
+io.on('connection', (socket) => {
+  socket.on('join', ({ username, room }, callback) => {
+    const { error, user } = addUser({ id: socket.id, username, room })
+
+    if (error) {
+      return callback(error)
+    }
+
+    socket.join(user.room)
+
+    socket.emit('message', generateMessage('Admin', 'Welcome!'))
+    socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+    
+    callback()
+  })
+
+  socket.on('disconnect', () => {
+    const user = removeUser(socket.id)
+
+    if (user) {
+      io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+    }
+  })
+
+server.listen(port, () => {
+  console.log(`Server is up on port ${port}`)
+})
+
+``` 
+
+E a aplicação deve estar no seguinte estado:
+
+![enter image description here](https://i.imgur.com/aJiedSq.gif)
 
 
  ***
@@ -880,4 +1007,4 @@ Caso de uso que ilustra a funcionalidade:
 - Usuário clica no input de mensagens e digita a mensagem que deseja enviar.
 - Usuário clica no botão **Send** que dispara a mensagem para todos da sala, inclusive para o próprio emissor da mensagem.
 
-**Passo 14** -  Criando a funcionalidade de envio de mensagens no chat.
+**Passo xx** -  Criando a funcionalidade de envio de mensagens no chat.
