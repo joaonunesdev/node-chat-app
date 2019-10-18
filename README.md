@@ -995,16 +995,96 @@ E a aplicação deve estar no seguinte estado:
 ![enter image description here](https://i.imgur.com/aJiedSq.gif)
 
 
- ***
- Working in progress from now on...
- ***
- 
- # Enviando mensagens de chat
+ # Envio de mensagens de texto no chat
 
-A partir de agora, vamos utilizar a interface de usuário ao invés do console. Começando pelo envio de mensagens de chat dos usuários.
+Os membros de uma sala de bate-papo devem ser capazes de enviar mensagens, não é mesmo? Um caso de uso que ilustra a funcionalidade é descrito logo abaixo:
 
-Caso de uso que ilustra a funcionalidade:
 - Usuário clica no input de mensagens e digita a mensagem que deseja enviar.
 - Usuário clica no botão **Send** que dispara a mensagem para todos da sala, inclusive para o próprio emissor da mensagem.
 
-**Passo xx** -  Criando a funcionalidade de envio de mensagens no chat.
+**Passo 16** -  Criando a funcionalidade de envio de mensagens no chat.
+
+Vamos continuar trabalhando no arquivo **src/index.js**. Portanto, abra este arquivo e adiciona o código abaixo.
+
+```javascript
+socket.on('sendMessage', (messageText, callback) => {
+    // Recupera o usuário pela id
+    const user = getUser(socket.id)
+    
+    // Envia a mensagem de texto para a sala
+    io.to(user.room).emit('message', generateMessage(user.username, messageText))
+    
+    // Função que confirma o recebimento da mensagem do lado do servidor 
+    callback()
+  })
+``` 
+Esse *handler* recebe o texto da mensagem e uma função de callback.  Vamos analisar as três linhas de código separadas.
+
+No código abaixo realizamos uma busca na aplicação pelo usuário que enviou a mensagem à partir da ``id`` do socket.
+
+```javascript
+const user = getUser(socket.id)
+```
+
+Com uma instância do usuário em mãos, usamos o código abaixo para emitir um novo evento tipo ``message`` para todos os membros do chat.
+
+ ```javascript
+io.to(user.room).emit('message', generateMessage(user.username, messageText))
+```
+
+A chamada à função callback  serve apenas para confirmar ao emissor do evento o recebimento do mesmo, como se fosse um handshake em uma conexão TCP/IP. Mas não é obrigatório. No Socket.io isso se chama **acknowledgements** e serve para enviar e receber dados.
+
+```javascript
+callback()
+```
+
+Agora vamos abrir o arquivo **/public/js/chat.js** para implementarmos o lado do cliente que ficará responsável por enviar de fato a mensagem. Abra-o e adicione o seguinte código:
+
+```javascript
+$messageForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  
+  $messageFormButton.setAttribute('disabled', 'disabled')
+
+  const messageText = e.target.elements.message.value
+
+  socket.emit('sendMessage', messageText, (error) => {
+  
+    $messageFormButton.removeAttribute('disabled')
+    $messageFormInput.value = ''
+    $messageFormInput.focus()
+
+    if (error) {
+      return console.log(error)
+    }
+
+    console.log('Message delivered!')
+  })
+})
+```
+
+Melhorias:
+
+```javascript
+$messageForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  
+  $messageFormButton.setAttribute('disabled', 'disabled')
+
+  const messageText = e.target.elements.message.value
+
+  socket.emit('sendMessage', messageText, (error) => {
+  
+    $messageFormButton.removeAttribute('disabled')
+    $messageFormInput.value = ''
+    $messageFormInput.focus()
+
+    if (error) {
+      return console.log(error)
+    }
+
+    console.log('Message delivered!')
+  })
+})
+```
+
