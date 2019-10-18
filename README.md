@@ -734,6 +734,144 @@ Ao salvar as alterações o nodemon deve reiniciar o servidor e nossa aplicaçã
 
 ![enter image description here](https://lh3.googleusercontent.com/gd4IKeOtUs2dM1m0QV0K3_DlCQIoARIBE4CLZpp08ZrMik7GeAuANkBSSxyFYm5V4O4Q4FzIbvc "UI")
 
+ 
+ # Migrando funcionalidades para UI
+
+A partir de agora, vamos utilizar a interface de usuário ao invés do console. Para isso, teremos que refatorar o código existente, começando pelo arquivo **public/js/chat.js**.
+
+**Passo 14** - Refatorando o arquivo js do lado cliente.
+
+Em **public/js/chat.js** vamos refatorar o *handler* para eventos do tipo ``message``, recuperar referências para elementos do **dom** e uma função auxiliar (temporária) que permitirá simular o login de um usuário na aplicação.
+
+São muitas mudanças que inclusive envolvem alguns conceitos que ainda não foram abordados, mas vamos devagar.
+
+Antes:
+
+```javascript
+const  socket  =  io()
+
+socket.on('message', (msg) => {
+  console.log(msg)
+})
+``` 
+Depois:
+```javascript
+const  socket  =  io()
+
+// Recupera os elementos da página de chat
+const $messageForm = document.querySelector('#message-form')
+const $messageFormInput = $messageForm.querySelector('input')
+const $messageFormButton = $messageForm.querySelector('button')
+const $sendLocationButton = document.querySelector('#send-location')
+const $messages = document.querySelector('#messages')
+
+// Templates
+const $messageTemplate = document.querySelector('#message-template').innerHTML
+const $locationMessageTemplate = document.querySelector('#location-message-template').innerHTML
+const $sidebarTemplate = document.querySelector('#sidebar-template').innerHTML
+
+socket.emit('join', { username: generateFakeName(), room: 'virtus1' }, error => {
+  if (error) {
+    alert(error)
+    location.href = '/';
+  }
+})
+
+socket.on('message', ({ username, text, createdAt }) => {
+  const html = Mustache.render($messageTemplate, {
+    username,
+    text,
+    createdAt: moment(createdAt).format('h:mm a')
+  });
+  
+  $messages.insertAdjacentHTML('beforeend', html);
+})
+
+const generateFakeName = () => {
+  const nameLength = 5
+  var fakeName = ''
+  var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  var charactersLength = characters.length
+
+  for (var i = 0; i < nameLength; i++) {
+    fakeName += characters.charAt(Math.floor(Math.random() * charactersLength))
+  }
+
+  return fakeName
+}
+
+``` 
+
+**Recuperando elementos das páginas html**
+
+A abordagem adota aqui foi capturar uma referência para cada elemento que iremos criar algum tipo de interação. Para recuperar estas referências estamos usando o método <a href="https://developer.mozilla.org/pt-BR/docs/Web/API/Document/querySelector" target="_blank">``querySelector``</a> da interface ``document``. 
+
+```javascript
+// Recupera os elementos da página de chat
+const $messageForm = document.querySelector('#message-form')
+const $messageFormInput = $messageForm.querySelector('input')
+const $messageFormButton = $messageForm.querySelector('button')
+const $sendLocationButton = document.querySelector('#send-location')
+const $messages = document.querySelector('#messages')
+```
+
+Alguns elementos do html são na verdade templates. Estamos capturando referências para os mesmos e obtendo a sintaxe HTML com a propriedade <a href="https://developer.mozilla.org/pt-BR/docs/Web/API/Element/innerHTML" target="_blank">``innerHTML``</a> do elemento, que  descreve os elementos descendentes.
+
+```javascript
+// Templates
+const $messageTemplate = document.querySelector('#message-template').innerHTML
+const $locationMessageTemplate = document.querySelector('#location-message-template').innerHTML
+const $sidebarTemplate = document.querySelector('#sidebar-template').innerHTML
+```
+
+**Usuário ingressa no chat**
+
+Quando um usuário entrar no chat um evento personalizado ``join`` será emitido. Como vimos posteriormente, para emitir um evento usamos o método ``emit``. O primeiro parâmetro deste método é o nome do evento, no segundo parâmetro estamos passando um objeto que possui o nome do usuário e a sala. Reparem que para o nome de usuário estamos chamando um função que gera um sequência de caracteres, para que não haja conflito. A sala estamos passando *hardcoded*. O último parâmetro que estamos passando é apenas um *callback* para tratar erros.
+
+```javascript
+socket.emit('join', { username: generateFakeName(), room: 'virtus1' }, error => {
+  if (error) {
+    alert(error)
+    location.href = '/';
+  }
+})
+```
+
+**Renderizando as mensagens de chat no html**
+
+Antes estávamos apenas exibindo as mensagens no console. A partir de agora vamos renderizar as mensagens na tela de chat usando o sistema de templates <a href="https://www.npmjs.com/package/mustache" target="_blank"> Mustache.js</a>.
+
+```javascript
+socket.on('message', ({ username, text, createdAt }) => {
+  const html = Mustache.render($messageTemplate, {
+    username,
+    text,
+    createdAt: moment(createdAt).format('h:mm a')
+  });
+  
+  $messages.insertAdjacentHTML('beforeend', html);
+})
+```
+
+No snippet acima, a função ``Mustache.render`` recebe dois parâmetros: 1) o template mustache e 2) um objeto view com os dados que serão utilizados para renderizar o template. Em seguida, utilizamos ``insertAdjacentHTML`` para adicionamos o template renderizado *html* em um ponto específico da página, usando a referência. Em outras palavras, o template será renderizado no elemento com id  #messages.
+
+A partir deste momento, todos os eventos do tipo ``message`` usarão este novo *handler*, agora é preciso alterar o código do arquivo **/src/indexjs** para que eventos tipo ``message`` sejam emitidos com o objeto view esperado, ao invés de um texto simples. O novo formato de mensagens possui três propriedades: (i) nome do usuário; (ii) o texto da mensagem; e (iii) a data de criação da mesma.
+
+**Passo 15** -  Refatorando o arquivo js do lado servidor. 
+
+
+
+
+
+
+
+
+
+
+ ***
+ Working in progress from now on...
+ ***
+ 
  # Enviando mensagens de chat
 
 A partir de agora, vamos utilizar a interface de usuário ao invés do console. Começando pelo envio de mensagens de chat dos usuários.
