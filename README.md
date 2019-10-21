@@ -335,7 +335,7 @@ io.on('connection', () => {
 	console.log('New connection with WebSocket')
 })
 
-app.listen(port, () => {
+server.listen(port, () => {
 	console.log(`Server is up on port ${port}`)
 })
 ```
@@ -551,7 +551,7 @@ button:disabled {
 	box-shadow: 0px  0px  17px  1px  #1D1F26;
 	background: #F7F7FA;
 	padding: 24px;
-	width: 250px;
+	width: 350px;
 }
 
 .centered-form  button {
@@ -696,7 +696,7 @@ Agora, copie o seguinte código html para o arquivo **src/index.html**:
               <span class="message__name"> {{ username }}</span>
               <span class="message__meta"> {{ createdAt }} </span>
           </p>
-          <p>{{ message }}</p>
+          <p>{{ text }}</p>
       </div>
     </script>
 
@@ -741,7 +741,7 @@ A partir de agora, vamos utilizar a interface de usuário ao invés do console. 
 
 **Passo 14** - Refatorando o arquivo js do lado cliente.
 
-Em **public/js/chat.js** vamos refatorar o *handler* para eventos do tipo ``message``, recuperar referências para elementos do **dom** e uma função auxiliar (temporária) que permitirá simular o login de um usuário na aplicação.
+Em **public/js/chat.js** vamos refatorar o *handler* para eventos do tipo ``message``, recuperar referências para elementos do **dom** e criar uma função auxiliar temporária que nos ajudará a testar a aplicação antes de criarmos a tela de login do chat (i.e., função que utilizaremos para gerar nomes aleatórios).
 
 São muitas mudanças que inclusive envolvem alguns conceitos que ainda não foram abordados, mas vamos devagar.
 
@@ -804,7 +804,7 @@ const generateFakeName = () => {
 
 **Recuperando elementos das páginas html**
 
-A abordagem adota aqui foi capturar uma referência para cada elemento que iremos criar algum tipo de interação. Para recuperar estas referências estamos usando o método <a href="https://developer.mozilla.org/pt-BR/docs/Web/API/Document/querySelector" target="_blank">``querySelector``</a> da interface ``document``. 
+A abordagem adotada aqui foi capturar uma referência para cada elemento que iremos criar algum tipo de interação. Para recuperar estas referências estamos usando o método <a href="https://developer.mozilla.org/pt-BR/docs/Web/API/Document/querySelector" target="_blank">``querySelector``</a> da interface ``document``. 
 
 ```javascript
 // Recupera os elementos da página de chat
@@ -1041,50 +1041,320 @@ callback()
 Agora vamos abrir o arquivo **/public/js/chat.js** para implementarmos o lado do cliente que ficará responsável por enviar de fato a mensagem. Abra-o e adicione o seguinte código:
 
 ```javascript
+// Configura o envio de mensagens de chat
 $messageForm.addEventListener('submit', (e) => {
+  // Evita que a página recarregue (não estamos informando um action no form)
   e.preventDefault()
   
+  // Desabilita o botão quando o usuário clicar nele
   $messageFormButton.setAttribute('disabled', 'disabled')
 
+  // Recupera a mensagem do input
   const messageText = e.target.elements.message.value
 
+  // Emite o evento
   socket.emit('sendMessage', messageText, (error) => {
   
+    // Habilita novamente o botão de envio de mensagem 
     $messageFormButton.removeAttribute('disabled')
+    // Reseta o valor do input
     $messageFormInput.value = ''
+    // O foco retorna para o input
     $messageFormInput.focus()
 
+    // Se o callback for chamado com erro
     if (error) {
       return console.log(error)
     }
 
+    // Acknowledgement do Socket.io
+    // Só é exibido se o callback for chamado sem argumentos
     console.log('Message delivered!')
   })
 })
 ```
 
-Melhorias:
+ # Envio da localização
+
+As funcionalidades mais básicas do nosso chat estão prontas, falta apenas o envio da localização.
+
+**Passo 17** -  Compartilhando a localização do usuário.
+
+Para enviar a localização do cliente utilizaremos as funcionalidades de geolocalização W3C, que é suportada pela maioria dos browsers.
+
+Para isso, vamos criar um *event listener* no botão de "Send Location" e um *handler* para o evento "locationMessage" que deve exibir uma url no chat, de forma muito similar ao envio de uma mensagem de chat normal.
+
+Portanto, vamos começar adicionando os dois snippets de código abaixo no arquivo **/public/js/chat.js**:
+
+Este primeiro trecho de código é bem simples, quando não houver suporte para a funcionalidade de geolocalização um erro deve ser retornado. Em um fluxo normal, as coordenadas serão extraídas do browser e enviadas à partir da emissão do evento personalizado ``sendLocation``. Mais uma vez estamos desabilitando o botão durante o processo de envio dos dados. Observem que o botão será habilitado apenas quando callback de ``acknowledgement`` for chamado do lado do servidor, confirmando o recebimento do evento.
+
+Em **/public/js/chat.js**:
+```javascript
+// Configura o envio da localização do usuário
+$sendLocationButton.addEventListener('click', (e) => {
+  
+  // Caso o navegador não tenha suporte para geolocalização 
+  if (!navigator.geolocation) {
+    return alert('Geolocation is not supported by your browser.')
+  }
+
+  // Desabilitamos temporariamente o botão de envio de localização
+  $sendLocationButton.setAttribute('disabled', 'disabled')
+
+  // Recupera a localização do usuário via browser
+  navigator.geolocation.getCurrentPosition((position) => {
+    
+    // Emite um novo evento personalizado 
+    socket.emit('sendLocation', {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    }, () => {
+      $sendLocationButton.removeAttribute('disabled')
+      console.log('Location shared')
+    }) 
+  })
+})
+```
+
+Este, por sua vez é o *handler* responsável por renderizar as mensagens de localização no chat.
 
 ```javascript
-$messageForm.addEventListener('submit', (e) => {
-  e.preventDefault()
-  
-  $messageFormButton.setAttribute('disabled', 'disabled')
-
-  const messageText = e.target.elements.message.value
-
-  socket.emit('sendMessage', messageText, (error) => {
-  
-    $messageFormButton.removeAttribute('disabled')
-    $messageFormInput.value = ''
-    $messageFormInput.focus()
-
-    if (error) {
-      return console.log(error)
-    }
-
-    console.log('Message delivered!')
+// Handler para eventos localização
+socket.on('locationMessage', (location) => {
+  const html = Mustache.render($locationMessageTemplate, {
+    username: location.username,
+    url: location.url,
+    createdAt: moment(location.createdAt).format('h:mm a')
   })
+  $messages.insertAdjacentHTML('beforeend', html)
 })
 ```
 
+Agora vamos preparar o lado do servidor para receber a localização do usuário e preparar a mensagem que deve ser enviada para o chat. Dessa forma, vamos copiar o seguinte trecho de código para o arquivo **/src/index.js**.
+
+Em **/src/index.js**:
+```javascript
+// Recebe a localização do cliente e envia para a sala de chat
+  socket.on('sendLocation', (coords, callback) => {
+    // Recupera o usuário pela id
+    const user = getUser(socket.id)
+
+    // Envia um link do google maps com as coordenadas do cliente
+    io.to(user.room).emit('locationMessage', generateLocationMessage(user.username, `https://google.com/maps?q=${coords.latitude},${coords.longitude}`))
+    
+    // Função que confirma o recebimento da mensagem do lado do servidor 
+    callback()
+  })
+```
+
+A nossa aplicação deve estar da seguinte maneira:
+
+[inserir gif do estado 09-Send_Location]
+
+
+# Sidebar do chat
+
+Vamos usar a *sidebar* para exibir o nome da sala de chat e a lista de membros do chat. Sempre que um usuário se conectar ou se desconectar um evento deve ser enviado para o client com os dados atualizados da sala. Para isso, vamos adicionar o seguinte código nos *handlers* do evento personalizado ``join``  e do evento padrão ``disconnect``.
+
+No arquivo **/src/index.js** adicione o seguinte código dentro dos *handlers* dos eventos ``join`` e ``disconnect``:
+
+```javascript
+// Emite evento com dados da sala
+io.to(user.room).emit('roomData', {
+  room: user.room,
+  users: getUsersInRoom(user.room)
+})
+```
+
+O evento personalizado que estamos emitindo com o código acima se chama ``roomData`` e será enviado sempre a sala específica do usuário. O evento é acompanhado do nome da sala de chat da lista de membros.
+
+O arquivo **/src/index.js** deve estar da seguinte forma:
+
+```javascript
+const path = require('path')
+const http = require('http')
+const express = require('express')
+const socketio = require('socket.io')
+const { generateMessage, generateLocationMessage } =  require('./utils/messages')
+const { addUser, removeUser, getUser, getUsersInRoom } = require('./utils/users')
+
+// Cria a aplicação Express
+const app = express()
+
+// Cria um servidor HTTP usando a aplicação Express
+const server = http.createServer(app)
+
+// Conecta socket.io com o servidor HTTP
+const io = socketio(server)
+
+const port = process.env.PORT || 3000
+const publicDirectoryPath = path.join(__dirname, '../public')
+
+app.use(express.static(publicDirectoryPath))
+
+// Monitora novas conexões para com o servidor
+io.on('connection', (socket) => {
+  
+  // Handler para quando novos usuários entrarem no chat
+  socket.on('join', ({ username, room }, callback) => {
+    const { error, user } = addUser({ id: socket.id, username, room })
+    
+    if (error) {
+      return callback(error)
+    }
+
+    socket.join(user.room)
+
+    socket.emit('message', generateMessage('Admin', 'Welcome!'))
+    socket.broadcast.to(user.room).emit('message', generateMessage('Admin', `${user.username} has joined!`))
+    
+    // Novo código
+    // Emite evento com dados da sala
+    io.to(user.room).emit('roomData', {
+      room: user.room,
+      users: getUsersInRoom(user.room)
+    })
+
+    callback()
+  })
+  
+  // Recebe uma mensagem do cliente e envia para a sala de chat
+  socket.on('sendMessage', (messageText, callback) => {
+    // Recupera o usuário pela id
+    const user = getUser(socket.id)
+    
+    // Envia a mensagem de texto para a sala
+    io.to(user.room).emit('message', generateMessage(user.username, messageText))
+    
+    // Função que confirma o recebimento da mensagem do lado do servidor 
+    callback()
+  })
+
+  // Recebe a localização do cliente e envia para a sala de chat
+  socket.on('sendLocation', (coords, callback) => {
+    // Recupera o usuário pela id
+    const user = getUser(socket.id)
+
+    // Envia um link do google maps com as coordenadas do cliente
+    io.to(user.room).emit('locationMessage', generateLocationMessage(user.username, `https://google.com/maps?q=${coords.latitude},${coords.longitude}`))
+    
+    // Função que confirma o recebimento da mensagem do lado do servidor 
+    callback()
+  })
+
+  // Monitora desconexões dos clientes
+  socket.on('disconnect', () => {
+    const user = removeUser(socket.id)
+    // Notifica a saída de um usuário da sala de bate-papo
+    if (user) {
+      io.to(user.room).emit('message', generateMessage('Admin', `${user.username} has left!`))
+      
+      // Novo código
+      io.to(user.room).emit('roomData', {
+        room: user.room,
+        users: getUsersInRoom(user.room)
+      })
+ 
+    }
+  })
+})
+
+server.listen(port, () => {
+  console.log(`Server is up on port ${port}`)
+})
+``` 
+
+Agora só precisamos criar um *handler* para lidar com os eventos do tipo ``roomData`` no arquivo **/public/js/chat.js**, que ficará responsável por renderizar a lista de membros da sala de chat.
+
+Adicionem no arquivo **/public/js/chat.js** o seguinte trecho de código:
+
+```javascript
+// Atualiza os dados da sala (sidebar)
+socket.on('roomData', ({ room, users }) => {
+  const html = Mustache.render($sidebarTemplate, {
+    room,
+    users
+  })
+  document.querySelector('#sidebar').innerHTML = html
+})
+```
+
+Como podemos observar, o evento ``roomData`` contém apenas um objeto com o nome da sala e a lista de usuários. Nossa aplicação deve estar dessa forma:
+
+[gif 10-Sidebar]
+
+# Join Page
+
+Este será o último passo na construção de nossa aplicação de chat. Vamos criar uma página em que usuários podem informar o nome e a sala na qual deseja entrar e depois de submeter o formulário serão direcionados para a respectiva sala de chat. 
+
+Nós já criamos o aquivo **chat.html**, o que precisamos fazer agora é copiar todo o conteúdo de **index.html** para o mesmo. De agora em diante, o arquivo **index.html** será utilizada apenas como porta de entrada para as salas de chat.
+
+Portanto, após copiar todos o conteúdo de **index.html** para **chat.html**, copiem o código abaixo para **index.html** (substituindo o conteúdo existente). 
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chat App</title>
+    <link rel="icon" href="/img/favicon.png" />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="centered-form">
+      <div class="centered-form__box">
+        <h1>Join</h1>
+        <form action="/chat.html">
+         
+          <label>Display name</label>
+          <input
+            type="text"
+            name="username"
+            placeholder="Display name"
+            required
+          />
+          
+          <label>Room</label>
+          <input 
+            type="text" 
+            name="room" 
+            placeholder="Room" 
+            required />
+          
+            <button>Join</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
+```
+Os dados do formulário acima descrito serão enviados como *query strings* para o arquivo **chat.html**, que agora carrega o arquivo **/public/js/chat.js**. 
+
+O que precisamos fazer agora é capturar o nome de usuário e a sala para que o usuário seja inserido na sala de chat correta. Para isso vamos refatorar um pouco o código do arquivo **/public/js/chat.js**, nos livrando da função temporária que cria nomes aleatórios (não precisamos mais dela) e finalmente fazendo uso da biblioteca ``Qs``que importamos a um tempo atrás mas só agora faremos uso da mesma. 
+
+Usando a biblioteca ``Qs`` podemos recuperar o nome de usuário e sala informados pelo usuário da ``query string`` da seguinte forma:
+
+```javascript
+const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true })
+```
+No trecho de código acima usamos atribuição via desestruturação das variáveis ``username`` e ``room`` fazendo o parse da url através do método ``parse`` da biblioteca ``Qs``. Estamos passando como segundo argumento um objeto de opções com uma opção para ignorar o prefixo **?** da *query string*.
+
+Dessa forma a esta url ``http://localhost:3000/chat.html?username=joao&room=virtus1`` vai resultar em um ``username = Joao`` e ``room = virtus1``.
+
+Copie o código abaixo para o arquivo **/public/js/chat.js**:
+
+```javascript
+// Options
+const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true })
+```
+
+E refatore o código que emite o evento ``join`` da seguinte forma:
+
+```javascript
+// Evento é emitido sempre que este arquivo for carregado
+socket.emit('join', { username, room }, error => {
+  if (error) {
+    alert(error)
+    location.href = '/';
+  }
+})
+```
